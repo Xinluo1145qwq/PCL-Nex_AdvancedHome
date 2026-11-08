@@ -9,11 +9,11 @@
 ---
 
 <p align="center">
-  <a href="https://github.com/Xinluo1145qwq/PCL-Nex_AdvancedHome/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/Xinluo1145qwq/PCL-Nex_AdvancedHome?style=flat-square&label=Stars&labelColor=3b3b3b&color=e3b341&logo=github&logoColor=white"></a>
-  <a href="https://github.com/Xinluo1145qwq/PCL-Nex_AdvancedHome/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/Xinluo1145qwq/PCL-Nex_AdvancedHome?style=flat-square&label=Release&labelColor=3b3b3b&color=e67e22&logo=github&logoColor=white"></a>
-  <a href="https://github.com/Xinluo1145qwq/PCL-Nex_AdvancedHome/issues"><img alt="Issues" src="https://img.shields.io/github/issues/Xinluo1145qwq/PCL-Nex_AdvancedHome?style=flat-square&label=Issues&labelColor=3b3b3b&color=2ecc71&logo=github&logoColor=white"></a>
-  <a href="https://github.com/Xinluo1145qwq/PCL-Nex_AdvancedHome/pulls"><img alt="Pull requests" src="https://img.shields.io/github/issues-pr/Xinluo1145qwq/PCL-Nex_AdvancedHome?style=flat-square&label=Pull%20requests&labelColor=3b3b3b&color=2ecc71&logo=github&logoColor=white"></a>
-  <a href="https://github.com/Xinluo1145qwq/PCL-Nex_AdvancedHome/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/Xinluo1145qwq/PCL-Nex_AdvancedHome/total?style=flat-square&label=downloads&labelColor=3b3b3b&color=1e8449&logo=github&logoColor=white"></a>
+  <a href="https://github.com/Xinluo1145qwq/PCL-Nex_AdvancedHome/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/Xinluo1145qwq/PCL-Nex_AdvancedHome?style=flat-square&label=Stars&labelColor=3b3b3b&color=e3b341"></a>
+  <a href="https://github.com/Xinluo1145qwq/PCL-Nex_AdvancedHome/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/Xinluo1145qwq/PCL-Nex_AdvancedHome?style=flat-square&label=Release&labelColor=3b3b3b&color=e67e22"></a>
+  <a href="https://github.com/Xinluo1145qwq/PCL-Nex_AdvancedHome/issues"><img alt="Issues" src="https://img.shields.io/github/issues/Xinluo1145qwq/PCL-Nex_AdvancedHome?style=flat-square&label=Issues&labelColor=3b3b3b&color=2ecc71"></a>
+  <a href="https://github.com/Xinluo1145qwq/PCL-Nex_AdvancedHome/pulls"><img alt="PRs" src="https://img.shields.io/github/issues-pr/Xinluo1145qwq/PCL-Nex_AdvancedHome?style=flat-square&label=PRs&labelColor=3b3b3b&color=2ecc71"></a>
+  <a href="https://github.com/Xinluo1145qwq/PCL-Nex_AdvancedHome/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/Xinluo1145qwq/PCL-Nex_AdvancedHome/total?style=flat-square&label=Downloads&labelColor=3b3b3b&color=1e8449"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/Xinluo1145qwq/PCL-Nex_AdvancedHome?style=flat-square&label=License&labelColor=3b3b3b&color=2ecc71"></a>
 </p>
 

@@ -65,7 +65,7 @@ internal static class M3
     ///   · 强调色永远来自用户选的龙猫蓝 / 天空蓝 / 死机蓝；
     ///   · 文字与底色始终是成对的 on 角色，对比度不会崩。
     /// </summary>
-    private static Scheme Build(bool dark, Color seed)
+    private static Scheme Build(bool dark, Color seed, double? primaryTone = null)
     {
         var (hue, chroma) = ToOkLch(seed);
 
@@ -89,7 +89,7 @@ internal static class M3
         if (!dark)
         {
             // ── 官方 light 角色 → tone 表 ──
-            scheme.Primary = T(hue, primaryChroma, 40);
+            scheme.Primary = T(hue, primaryChroma, primaryTone ?? 40);
             scheme.OnPrimary = T(hue, 0, 100);
             scheme.PrimaryContainer = T(hue, primaryChroma, 90);
             scheme.OnPrimaryContainer = T(hue, primaryChroma, 10);
@@ -274,6 +274,7 @@ internal static class M3
     private static Scheme? _cached;
     private static Color _cachedSeed;
     private static bool _cachedDark;
+    private static double? _cachedTone;
 
     /// <summary>当前主题的角色表：主题色或明暗一变就重建，其余时候复用。</summary>
     public static Scheme C
@@ -282,12 +283,14 @@ internal static class M3
         {
             var seed = Seed();
             bool dark = Palette.IsDark;
+            double? tone = AppTheme.SeedTone;
 
-            if (_cached != null && dark == _cachedDark && seed == _cachedSeed) return _cached;
+            if (_cached != null && dark == _cachedDark && seed == _cachedSeed && tone == _cachedTone) return _cached;
 
-            _cached = Build(dark, seed);
+            _cached = Build(dark, seed, tone);
             _cachedSeed = seed;
             _cachedDark = dark;
+            _cachedTone = tone;
 
             Log.Info($"[M3] 主题色 #{seed.R:X2}{seed.G:X2}{seed.B:X2}（{(dark ? "深色" : "浅色")}）→ primary {(BrushOfColor(_cached.Primary))}");
             return _cached;
@@ -299,6 +302,7 @@ internal static class M3
 
     private static Scheme? _lightCached;
     private static Color _lightSeed;
+    private static double? _lightTone;
 
     /// <summary>
     /// 始终按浅色生成的同一套配色。给「底色写死是浅色」的界面用（高级主页设置窗口
@@ -310,10 +314,12 @@ internal static class M3
         get
         {
             var seed = Seed();
-            if (_lightCached != null && seed == _lightSeed) return _lightCached;
+            double? tone = AppTheme.SeedTone;
+            if (_lightCached != null && seed == _lightSeed && tone == _lightTone) return _lightCached;
 
-            _lightCached = Build(false, seed);
+            _lightCached = Build(false, seed, tone);
             _lightSeed = seed;
+            _lightTone = tone;
             return _lightCached;
         }
     }

@@ -36,8 +36,16 @@ internal sealed class UiSettingsDialog : Window
     private const string IconGeneral =
         "M4,7 H8.5 M14.5,7 H20 M11.5,7 m-3,0 a3,3 0 1 0 6,0 a3,3 0 1 0 -6,0 " +
         "M4,17 H6.5 M12.5,17 H20 M9.5,17 m-3,0 a3,3 0 1 0 6,0 a3,3 0 1 0 -6,0";
+    // 外观：调色板（画板），比原来的水滴更像「配色」
     private const string IconLook =
-        "M12,3.6 C12,3.6 5.6,10.3 5.6,14.2 A6.4,6.4 0 0 0 18.4,14.2 C18.4,10.3 12,3.6 12,3.6 Z";
+        "M12,3.4 C7.1,3.4 3.6,6.9 3.6,11.4 C3.6,16.1 7.1,19.6 11.7,19.6 " +
+        "C13,19.6 13.6,18.7 13.6,17.9 C13.6,17.4 13.4,17 13.1,16.6 " +
+        "C12.8,16.2 12.7,15.9 12.7,15.4 C12.7,14.6 13.3,14 14.1,14 H16.3 " +
+        "C19,14 20.4,12 20.4,9.7 C20.4,6 16.7,3.4 12,3.4 Z " +
+        "M7.9,10.4 m-0.85,0 a0.85,0.85 0 1 0 1.7,0 a0.85,0.85 0 1 0 -1.7,0 " +
+        "M10.4,7.7 m-0.85,0 a0.85,0.85 0 1 0 1.7,0 a0.85,0.85 0 1 0 -1.7,0 " +
+        "M13.6,7.7 m-0.85,0 a0.85,0.85 0 1 0 1.7,0 a0.85,0.85 0 1 0 -1.7,0 " +
+        "M16.1,10.4 m-0.85,0 a0.85,0.85 0 1 0 1.7,0 a0.85,0.85 0 1 0 -1.7,0";
     private const string IconInfo = "M12,3.2 A8.8,8.8 0 1 1 11.9,3.2 Z M12,10.6 V16.9 M12,7.5 V7.7";
     private const string IconBug =
         "M9,8.2 A3,3 0 0 1 15,8.2 V14.2 A3,3 0 0 1 9,14.2 Z " +
@@ -65,7 +73,7 @@ internal sealed class UiSettingsDialog : Window
 
     private static readonly string[] NavTitles = { "通用", "外观", "关于" };
     private static readonly string[] NavIcons = { IconGeneral, IconLook, IconInfo };
-    private static readonly string[] NavHints = { "字体、顶部菜单、布局与测试", "配色方案", "作者与数据" };
+    private static readonly string[] NavHints = { "字体、顶部菜单、重置", "配色方案", "作者与数据" };
 
     // ── 搜索索引：卡片 → 行 → 文本 ──
     private sealed class SearchRow
@@ -93,7 +101,7 @@ internal sealed class UiSettingsDialog : Window
     private readonly List<NavItem> _nav = new();
     private readonly List<NavItem> _allNav = new();
     private readonly List<SearchSection> _search = new();
-    private readonly List<(string Key, Border Ring, FrameworkElement Check)> _swatches = new();
+    private readonly List<(string Key, Border Ring)> _swatches = new();
     private SearchSection? _current;
 
     private Border _shell = null!;
@@ -280,9 +288,45 @@ internal sealed class UiSettingsDialog : Window
         top.Children.Add(_searchHint);
         grid.Children.Add(top);
 
-        // 中部：三个导航项
-        var navList = new StackPanel { Margin = new Thickness(0, 16, 0, 0) };
-        for (int i = 0; i < NavTitles.Length; i++)
+        // 中部导航：通用 + 外观 是同一张卡里的两行（中间一条横线），关于单独一张
+        var navList = new StackPanel { Margin = new Thickness(0, 14, 0, 0) };
+
+        var groupBody = new StackPanel();
+        for (int i = 0; i < 2 && i < NavTitles.Length; i++)
+        {
+            int index = i;
+            var item = new NavItem(NavIcons[i], NavTitles[i], NavHints[i], () =>
+            {
+                ClearSearch();
+                ScrollToSection(index, true);
+            }, grouped: true)
+            {
+                ToolTip = UiStyles.Tooltip(NavTitles[i] + " · " + NavHints[i])
+            };
+            _nav.Add(item);
+            _allNav.Add(item);
+            groupBody.Children.Add(item);
+
+            if (i == 0)
+            {
+                groupBody.Children.Add(new Border
+                {
+                    Height = 1,
+                    Margin = new Thickness(20, 0, 20, 0),
+                    Background = UiSkin.Paint("#C4CBD8")
+                });
+            }
+        }
+
+        navList.Children.Add(new Border
+        {
+            CornerRadius = new CornerRadius(16),
+            Background = NavItem.GroupFill,
+            Margin = new Thickness(12, 0, 12, 0),
+            Child = groupBody
+        });
+
+        for (int i = 2; i < NavTitles.Length; i++)
         {
             int index = i;
             var item = new NavItem(NavIcons[i], NavTitles[i], NavHints[i], () =>
@@ -291,12 +335,14 @@ internal sealed class UiSettingsDialog : Window
                 ScrollToSection(index, true);
             })
             {
-                ToolTip = UiStyles.Tooltip(NavTitles[i] + " · " + NavHints[i])
+                ToolTip = UiStyles.Tooltip(NavTitles[i] + " · " + NavHints[i]),
+                Margin = new Thickness(12, 8, 12, 4)
             };
             _nav.Add(item);
             _allNav.Add(item);
             navList.Children.Add(item);
         }
+
         Grid.SetRow(navList, 1);
         grid.Children.Add(navList);
 
@@ -1575,15 +1621,9 @@ internal sealed class UiSettingsDialog : Window
             Child = content
         };
 
-        var check = MakeIcon(IconCheck, UiSkin.L.Primary, 16);
-        check.HorizontalAlignment = HorizontalAlignment.Right;
-        check.VerticalAlignment = VerticalAlignment.Top;
-        check.Margin = new Thickness(0, 2, 4, 0);
-        check.Visibility = Visibility.Collapsed;
-
+        // 选中态只靠描边 + 淡底，不打勾号
         var tile = new Grid();
         tile.Children.Add(ring);
-        tile.Children.Add(check);
 
         ring.MouseEnter += (_, _) =>
         {
@@ -1631,7 +1671,7 @@ internal sealed class UiSettingsDialog : Window
             Dispatcher.BeginInvoke(new Action(Rebuild), DispatcherPriority.Background);
         };
 
-        _swatches.Add((key, ring, check));
+        _swatches.Add((key, ring));
         return tile;
     }
 
@@ -1783,12 +1823,11 @@ internal sealed class UiSettingsDialog : Window
     private void RefreshSwatches()
     {
         string current = AppTheme.CurrentKey;
-        foreach (var (key, ring, check) in _swatches)
+        foreach (var (key, ring) in _swatches)
         {
             bool on = key == current;
             ring.BorderBrush = on ? UiSkin.L.Primary : Brushes.Transparent;
             ring.Background = on ? M3.Layer(M3.Of(UiSkin.Card), M3.Of(UiSkin.L.Primary), 0.05) : Brushes.Transparent;
-            check.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
         }
     }
 
@@ -2003,18 +2042,15 @@ internal sealed class UiSettingsDialog : Window
         });
         root.Children.Add(banner);
 
-        // 头像：骑在背景图与文字区的交线上
+        // 头像：骑在背景图与文字区的交线上，只留图片本身——不加圆底、不加描边
         var avatar = new Border
         {
-            Width = 84,
-            Height = 84,
-            CornerRadius = new CornerRadius(26),
-            BorderThickness = new Thickness(4),
-            BorderBrush = UiSkin.Card,
-            Background = UiSkin.CardAlt,
+            Width = 88,
+            Height = 88,
+            CornerRadius = new CornerRadius(18),
             HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(24, -42, 0, 0),
+            Margin = new Thickness(24, -44, 0, 0),
             Child = ImageUtil.Embedded("PCLN.AdvancedHomepage.Assets.Author.avatar.jpg", 256) is { } face
                 ? new Image { Source = face, Stretch = Stretch.UniformToFill }
                 : null
@@ -2023,7 +2059,7 @@ internal sealed class UiSettingsDialog : Window
         {
             if (avatar.ActualWidth <= 0) return;
             avatar.Clip = new RectangleGeometry(
-                new Rect(0, 0, avatar.ActualWidth, avatar.ActualHeight), 22, 22);
+                new Rect(0, 0, avatar.ActualWidth, avatar.ActualHeight), 18, 18);
         };
         Grid.SetRow(avatar, 1);
         root.Children.Add(avatar);
@@ -2086,37 +2122,46 @@ internal sealed class UiSettingsDialog : Window
         return wrap;
     }
 
-    /// <summary>一颗圆形平台入口：图标直接铺满圆形，悬停换成 primary container 底。</summary>
+    /// <summary>
+    /// 一颗圆形平台入口：图标文件本身已经裁成圆形，外面只留一圈 2dp 的空描边，
+    /// 悬停时描边亮成主色——不铺底色，所以四个入口看上去是四个一样大的圆。
+    /// </summary>
     private FrameworkElement SocialButton(string iconFile, string label, string url)
     {
-        const double size = 40;
+        const double size = 44;
 
-        var image = new Image
-        {
-            Stretch = Stretch.UniformToFill,
-            SnapsToDevicePixels = true
-        };
+        var image = new Image { Stretch = Stretch.Uniform, SnapsToDevicePixels = true };
+        RenderOptions.SetBitmapScalingMode(image, BitmapScalingMode.HighQuality);
 
-        if (ImageUtil.Embedded("PCLN.AdvancedHomepage.Assets.Author." + iconFile, 128) is { } source)
+        if (ImageUtil.Embedded("PCLN.AdvancedHomepage.Assets.Author." + iconFile, 176) is { } source)
         {
             image.Source = source;
-            image.Clip = new EllipseGeometry(new Point(size / 2, size / 2), size / 2, size / 2);
         }
 
-        var circle = new Border
+        var disc = new Border
+        {
+            CornerRadius = new CornerRadius(size / 2),
+            ClipToBounds = true,
+            Background = UiSkin.CardAlt,
+            Child = image
+        };
+
+        var ring = new Border
         {
             Width = size,
             Height = size,
             CornerRadius = new CornerRadius(size / 2),
-            Background = UiSkin.CardAlt,
-            Child = image,
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(2),
+            BorderBrush = Brushes.Transparent,
+            Child = disc,
             Cursor = Cursors.Hand,
             ToolTip = UiStyles.Tooltip(label)
         };
 
-        circle.MouseEnter += (_, _) => circle.Background = UiSkin.L.PrimaryContainer;
-        circle.MouseLeave += (_, _) => circle.Background = UiSkin.CardAlt;
-        circle.MouseLeftButtonUp += (_, e) =>
+        ring.MouseEnter += (_, _) => ring.BorderBrush = M3.Alpha(UiSkin.L.Primary, 0.55);
+        ring.MouseLeave += (_, _) => ring.BorderBrush = Brushes.Transparent;
+        ring.MouseLeftButtonUp += (_, e) =>
         {
             e.Handled = true;
             OpenUrl(url);
@@ -2127,14 +2172,14 @@ internal sealed class UiSettingsDialog : Window
             Margin = new Thickness(0, 0, 14, 0),
             HorizontalAlignment = HorizontalAlignment.Center
         };
-        stack.Children.Add(circle);
+        stack.Children.Add(ring);
         stack.Children.Add(new TextBlock
         {
             Text = label,
             FontSize = 10.5,
             Foreground = UiSkin.Dim,
             HorizontalAlignment = HorizontalAlignment.Center,
-            Margin = new Thickness(0, 5, 0, 0)
+            Margin = new Thickness(0, 6, 0, 0)
         });
 
         return stack;
@@ -2355,10 +2400,10 @@ internal sealed class UiSettingsDialog : Window
 
     // ─────────────────────────── 导航项 ───────────────────────────
 
-    /// <summary>一个 MD3 导航抽屉条目：52dp 高、全圆角药丸底、左图标右文字。</summary>
     /// <summary>
-    /// 侧栏条目，版式照抄组件库里的「列表项」：38dp 圆形图标容器 + 标题 + 说明。
-    /// 选中时整行铺 primary container，图标容器翻成实心 primary——比原来的药丸描边更像一枚可点的设置项。
+    /// 侧栏列表项：44dp 圆形图标容器 + 标题 + 一行说明，整行铺一层极淡的 primary 底。
+    /// 选中时底色加深、圆形容器变实、图标转成 primary；未选中时图标是同一色相的深色版，
+    /// 这样换成橙 / 绿 / 莫奈时整个侧栏都跟着走，不会留一块写死的蓝。
     /// </summary>
     private sealed class NavItem : Grid
     {
@@ -2368,16 +2413,22 @@ internal sealed class UiSettingsDialog : Window
         private readonly TextBlock _label;
         private readonly TextBlock _hint;
         private readonly bool _filled;
+        private readonly bool _grouped;
         private bool _active;
         private bool _hovering;
 
         /// <summary>窗口刚弹出来的几百毫秒里关掉点击，避免吃掉上一个窗口的 MouseUp。</summary>
         public bool Enabled = true;
 
-        public NavItem(string iconData, string label, string hint, Action onClick, bool filled = false)
+        /// <summary>合并卡（通用 + 外观）里那两行共用的底色。</summary>
+        public static Brush GroupFill => M3.Layer(M3.Of(UiSkin.Card), M3.Of(UiSkin.L.Primary), 0.035);
+
+        public NavItem(string iconData, string label, string hint, Action onClick,
+            bool filled = false, bool grouped = false)
         {
-            Height = 60;
-            Margin = new Thickness(10, 0, 10, 4);
+            Height = 66;
+            Margin = grouped ? new Thickness(0) : new Thickness(12, 4, 12, 4);
+            _grouped = grouped;
             Background = Brushes.Transparent;
             Cursor = Cursors.Hand;
 
@@ -2390,12 +2441,13 @@ internal sealed class UiSettingsDialog : Window
             };
             Children.Add(_row);
 
-            _icon = MakeIcon(iconData, UiSkin.Dim, 20, filled);
+            _icon = MakeIcon(iconData, UiSkin.Dim, 21, filled);
+
             _badge = new Border
             {
-                Width = 38,
-                Height = 38,
-                CornerRadius = new CornerRadius(19),
+                Width = 44,
+                Height = 44,
+                CornerRadius = new CornerRadius(22),
                 Background = UiSkin.CardAlt,
                 Child = _icon,
                 VerticalAlignment = VerticalAlignment.Center
@@ -2404,7 +2456,7 @@ internal sealed class UiSettingsDialog : Window
             _label = new TextBlock
             {
                 Text = label,
-                FontSize = 13.5,
+                FontSize = 14.5,
                 FontWeight = FontWeights.Medium,
                 Foreground = UiSkin.Ink
             };
@@ -2412,21 +2464,21 @@ internal sealed class UiSettingsDialog : Window
             _hint = new TextBlock
             {
                 Text = hint,
-                FontSize = 11.5,
+                FontSize = 12.5,
                 Foreground = UiSkin.Dim,
-                Margin = new Thickness(0, 2, 0, 0),
+                Margin = new Thickness(0, 3, 0, 0),
                 TextTrimming = TextTrimming.CharacterEllipsis
             };
 
             var text = new StackPanel
             {
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(12, 0, 10, 0)
+                Margin = new Thickness(14, 0, 10, 0)
             };
             text.Children.Add(_label);
             text.Children.Add(_hint);
 
-            var row = new Grid { Margin = new Thickness(10, 0, 8, 0) };
+            var row = new Grid { Margin = new Thickness(14, 0, 12, 0) };
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             row.Children.Add(_badge);
@@ -2450,6 +2502,8 @@ internal sealed class UiSettingsDialog : Window
                 if (!Enabled) return;
                 onClick();
             };
+
+            Paint(false);
         }
 
         public void SetActive(bool value)
@@ -2462,23 +2516,28 @@ internal sealed class UiSettingsDialog : Window
         private void Paint(bool animate)
         {
             var scheme = UiSkin.L;
+            var accent = M3.Of(scheme.Primary);
 
-            Brush fill = _active
-                ? scheme.PrimaryContainer
-                : (_hovering ? UiSkin.CardAlt : Brushes.Transparent);
+            // 合并卡里的行自己不再铺底（底色由外层的卡给），只用一层淡淡的悬停响应
+            Brush fill = _grouped
+                ? (_hovering ? M3.Layer(M3.Of(NavItem.GroupFill), accent, 0.05) : Brushes.Transparent)
+                : (_active
+                    ? M3.Layer(M3.Of(UiSkin.Card), accent, 0.15)
+                    : (_hovering ? M3.Layer(M3.Of(UiSkin.Card), accent, 0.075) : M3.Layer(M3.Of(UiSkin.Card), accent, 0.028)));
 
             if (animate) M3.AnimateFill(_row, fill);
             else _row.Background = fill;
 
-            _badge.Background = _active ? scheme.Primary : UiSkin.CardAlt;
+            _badge.Background = _active
+                ? scheme.Primary
+                : M3.Layer(M3.Of(UiSkin.Card), accent, 0.13);
 
-            var iconBrush = _active ? scheme.OnPrimary : UiSkin.Dim;
+            var iconBrush = _active ? scheme.OnPrimary : M3.Tint(scheme.Primary, 26);
             if (_filled) _icon.Fill = iconBrush;
             else _icon.Stroke = iconBrush;
 
-            _label.Foreground = _active ? scheme.OnPrimaryContainer : UiSkin.Ink;
-            _hint.Foreground = _active ? scheme.OnPrimaryContainer : UiSkin.Dim;
-            _hint.Opacity = _active ? 0.78 : 1;
+            _label.Foreground = _active ? M3.Tint(scheme.Primary, 18) : UiSkin.Ink;
+            _hint.Foreground = _active ? M3.Tint(scheme.Primary, 34) : UiSkin.Dim;
         }
     }
 }

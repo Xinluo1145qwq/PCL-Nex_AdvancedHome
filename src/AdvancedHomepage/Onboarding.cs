@@ -420,7 +420,9 @@ internal static class Onboarding
     {
         private WelcomeDialog()
         {
-            Dlg.Setup(this, "欢迎使用高级主页", 520, scrim: true);
+            // 不压黑幕：教程是「第一次见面」而不是模态确认，把整页压暗太打断人。
+            // 窗口只包住卡片本身，居中浮在主页上，底下的卡片照常可见。
+            Dlg.Setup(this, "欢迎使用高级主页", 560, scrim: false);
             SizeToContent = SizeToContent.Height;
             ResizeMode = ResizeMode.NoResize;
 

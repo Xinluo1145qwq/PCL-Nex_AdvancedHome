@@ -60,6 +60,25 @@ internal static class AppTheme
         return Parse(preset.Hex) ?? Color.FromRgb(0x42, 0x63, 0xDE);
     }
 
+    /// <summary>
+    /// 莫奈方案专用：把壁纸本身的明暗也当成「调性」带进配色。
+    ///
+    /// 只取色相的话，深海军蓝的壁纸和 #4263DE 算出来是同一套蓝——用户点了莫奈会觉得「没反应」。
+    /// 这里按种子色的感知亮度给一个主色色调（tone 28~48），深壁纸出深一点的强调色。
+    /// 其他方案固定 tone 40，保持官方观感。
+    /// </summary>
+    public static double? SeedTone
+    {
+        get
+        {
+            if (CurrentKey != "monet") return null;
+            if (Parse(Cfg.Ui.MonetSeed) is not Color color) return null;
+
+            double luma = 0.2126 * color.R + 0.7152 * color.G + 0.0722 * color.B;
+            return Math.Clamp(luma / 255.0 * 100.0 + 8, 28, 48);
+        }
+    }
+
     /// <summary>用取色器选出来的颜色当种子。</summary>
     public static void ApplyCustom(Color color)
     {
@@ -134,28 +153,37 @@ internal static class AppTheme
 
 /// <summary>
 /// 壁纸取色（Monet 的简化实现）：
-/// 把壁纸缩到 64px 长边，只统计「不太黑、不太白、有彩度」的像素，
-/// 按色相分 24 个桶累计「彩度 × 亮度」权重，取最重的桶平均出主色，
-/// 最后把彩度/亮度拉回可用区间，避免种子里出来一片灰。
+///
+/// 1. 找壁纸：遍历启动器主窗体，**按控件实际显示面积**挑最大的那张来自文件的图。
+///    壁纸铺满整窗，卡片背景图只有一张卡那么大，所以「谁大谁是壁纸」比「谁浅谁先找到」稳得多。
+/// 2. 取色：把图缩到 96px，按色相分 24 个桶累计「彩度 × 亮度」权重，再把相邻桶并成色簇。
+/// 3. 挑色簇：默认取权重最大的那个；但如果它和 M3 默认蓝的色相几乎一样（用户会觉得「点了没反应」），
+///    就改取另外一个有一定面积、色相明显不同的色簇——壁纸里的极光、晚霞、花丛往往就在这一类里。
 /// </summary>
 internal static class Monet
 {
+    /// <summary>M3 默认蓝 #4263DE 的色相：取出来的主色和它太像时换一个色簇。</summary>
+    private const double BaselineHue = 227;
+
+    private sealed class Cluster
+    {
+        public double Weight;
+        public Color Color;
+    }
+
     public static Color? Pick()
     {
         try
         {
-            string path = FindWallpaper();
-            if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            var (image, name) = FindWallpaper();
+            if (image == null)
             {
-                Log.Warn("莫奈取色：没找到壁纸文件");
+                Log.Warn("莫奈取色：没找到壁纸");
                 return null;
             }
 
-            var image = LoadSmall(path);
-            if (image == null) return null;
-
-            var result = Analyze(image);
-            Log.Info($"莫奈取色：{Path.GetFileName(path)} → {(result is Color c ? AppTheme.Hex(c) : "无")}");
+            var result = Analyze(Downscale(image));
+            Log.Info($"莫奈取色：{name} → {(result is Color c ? AppTheme.Hex(c) : "无")}");
             return result;
         }
         catch (Exception ex)
@@ -165,21 +193,37 @@ internal static class Monet
         }
     }
 
+    // ─────────────────────────── 找壁纸 ───────────────────────────
+
     /// <summary>
-    /// 先找启动器当前真正显示的那张壁纸，找不到再退到 Pictures 里最新的一张。
+    /// 找壁纸：按「显示面积」挑主窗体里最大的那张位图，直接拿它的像素来算。
     ///
-    /// 用广度优先：壁纸一般挂得离窗口很近，而卡片背景图埋在很深的地方，
-    /// 深度优先很容易先撞上某张卡片的背景图，取出来的「主色」就成了那张图的颜色。
+    /// 以前是找「图片文件的路径」，可启动器的壁纸常常是从流里读进来再铺到 Border 上的，
+    /// UriSource 为空 → 认不出来 → 一路退到 Pictures 里最新的一张；
+    /// 换壁纸没反应、永远拿旧图算色，就是这么来的。现在不认路径，只认像素。
+    /// 真找不到（比如壁纸是视频）再退到 Pictures。
     /// </summary>
-    private static string? FindWallpaper()
+    private static (BitmapSource? Image, string Name) FindWallpaper()
     {
         try
         {
             var window = PCL.ModMain.frmMain;
             if (window != null)
             {
-                string? found = Walk(window);
-                if (!string.IsNullOrEmpty(found)) return found;
+                var best = Largest(window);
+                if (best.Image != null)
+                {
+                    string name = string.IsNullOrEmpty(best.Path)
+                        ? $"界面壁纸（{best.Area:0} 像素）"
+                        : System.IO.Path.GetFileName(best.Path);
+
+                    Log.Info($"莫奈取色：命中 {name}，显示面积 {best.Area:0}");
+                    return (best.Image, name);
+                }
+            }
+            else
+            {
+                Log.Warn("莫奈取色：主窗体还没建好，退回 Pictures");
             }
         }
         catch (Exception ex)
@@ -189,35 +233,56 @@ internal static class Monet
 
         try
         {
-            string pictures = Path.Combine(Paths.Root, "Pictures");
-            if (!Directory.Exists(pictures)) return null;
+            string pictures = System.IO.Path.Combine(Paths.Root, "Pictures");
+            if (!Directory.Exists(pictures)) return (null, "");
 
-            return Directory.EnumerateFiles(pictures)
+            string? fallback = Directory.EnumerateFiles(pictures)
                 .Where(f => f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)
                             || f.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
                             || f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase)
                             || f.EndsWith(".webp", StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(File.GetLastWriteTimeUtc)
                 .FirstOrDefault();
+
+            if (fallback == null) return (null, "");
+
+            Log.Info($"莫奈取色：退回 Pictures，用 {System.IO.Path.GetFileName(fallback)}");
+            return (LoadSmall(fallback), System.IO.Path.GetFileName(fallback));
         }
         catch
         {
-            return null;
+            return (null, "");
         }
     }
 
-    private static string? Walk(DependencyObject root)
+    /// <summary>遍历可视树，返回显示面积最大的那张位图。</summary>
+    private static (BitmapSource? Image, string? Path, double Area) Largest(DependencyObject root)
     {
-        var queue = new Queue<(DependencyObject Node, int Depth)>();
-        queue.Enqueue((root, 0));
+        BitmapSource? bestImage = null;
+        string? bestPath = null;
+        double bestArea = 0;
 
-        while (queue.Count > 0)
+        var queue = new Queue<DependencyObject>();
+        queue.Enqueue(root);
+
+        int guard = 0;
+        while (queue.Count > 0 && guard++ < 60000)
         {
-            var (node, depth) = queue.Dequeue();
-            if (depth > 24) continue;
+            var node = queue.Dequeue();
 
-            string? path = WallpaperOf(node);
-            if (!string.IsNullOrEmpty(path)) return path;
+            var (source, path) = PictureOf(node);
+            if (source != null && node is FrameworkElement element)
+            {
+                // 只算真正参与布局的那部分；被隐藏的、还没量出尺寸的跳过
+                double area = element.ActualWidth * element.ActualHeight;
+                if (area <= 0) area = element.Width * element.Height;
+                if (area > bestArea)
+                {
+                    bestArea = area;
+                    bestImage = source;
+                    bestPath = path;
+                }
+            }
 
             int count;
             try
@@ -233,7 +298,7 @@ internal static class Monet
             {
                 try
                 {
-                    queue.Enqueue((VisualTreeHelper.GetChild(node, i), depth + 1));
+                    queue.Enqueue(VisualTreeHelper.GetChild(node, i));
                 }
                 catch
                 {
@@ -242,16 +307,15 @@ internal static class Monet
             }
         }
 
-        return null;
+        return (bestImage, bestPath, bestArea);
     }
 
-    /// <summary>这个元素上如果有「来自文件的图片」，就返回它的路径。</summary>
-    private static string? WallpaperOf(DependencyObject node)
+    /// <summary>这个元素上如果画着一张位图，就返回位图（有文件路径就一并带上）。</summary>
+    private static (BitmapSource? Source, string? Path) PictureOf(DependencyObject node)
     {
-        if (node is Image image && image.Source is BitmapSource source)
+        if (node is Image image && image.Source is BitmapSource fromImage)
         {
-            string? fromImage = Local(source);
-            if (fromImage != null) return fromImage;
+            return (fromImage, Local(fromImage));
         }
 
         Brush? brush = node switch
@@ -263,13 +327,32 @@ internal static class Monet
             _ => null
         };
 
-        if (brush is ImageBrush { ImageSource: BitmapSource brushSource })
+        if (brush is ImageBrush { ImageSource: BitmapSource fromBrush })
         {
-            string? fromBrush = Local(brushSource);
-            if (fromBrush != null) return fromBrush;
+            return (fromBrush, Local(fromBrush));
         }
 
-        return null;
+        return (null, null);
+    }
+
+    /// <summary>缩到 96px 长边再统计，几千万像素的壁纸也不会卡一下。</summary>
+    private static BitmapSource Downscale(BitmapSource source)
+    {
+        try
+        {
+            int width = source.PixelWidth;
+            if (width <= 128) return source;
+
+            double scale = 96.0 / width;
+            var small = new TransformedBitmap(source, new ScaleTransform(scale, scale));
+            small.Freeze();
+            return small;
+        }
+        catch
+        {
+            // 有些源不支持变换（例如已经冻结的索引色位图），原样返回
+            return source;
+        }
     }
 
     private static string? Local(BitmapSource source)
@@ -280,6 +363,21 @@ internal static class Monet
             {
                 string? uri = image.UriSource?.LocalPath;
                 if (!string.IsNullOrEmpty(uri) && File.Exists(uri)) return uri;
+            }
+
+            // 解码器直接给的帧（BitmapFrame）拿不到 UriSource，用 ToString 里带的路径兜一下
+            if (source is BitmapFrame frame)
+            {
+                string text = frame.ToString() ?? "";
+                int cut = text.IndexOf("://", StringComparison.Ordinal);
+                if (cut < 0) return null;
+
+                string uri = text;
+                if (Uri.TryCreate(uri, UriKind.Absolute, out var parsed) && parsed.IsFile)
+                {
+                    string local = parsed.LocalPath;
+                    if (File.Exists(local)) return local;
+                }
             }
         }
         catch
@@ -296,12 +394,14 @@ internal static class Monet
         bitmap.BeginInit();
         bitmap.CacheOption = BitmapCacheOption.OnLoad;
         bitmap.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
-        bitmap.DecodePixelWidth = 64;
+        bitmap.DecodePixelWidth = 96;
         bitmap.UriSource = new Uri(path, UriKind.Absolute);
         bitmap.EndInit();
         bitmap.Freeze();
         return bitmap;
     }
+
+    // ─────────────────────────── 取色 ───────────────────────────
 
     private static Color? Analyze(BitmapSource source)
     {
@@ -319,6 +419,7 @@ internal static class Monet
         var sumR = new double[bins];
         var sumG = new double[bins];
         var sumB = new double[bins];
+        var maxChroma = new double[bins];
 
         for (int i = 0; i < pixels.Length; i += 4)
         {
@@ -334,10 +435,10 @@ internal static class Monet
 
             // 太黑 / 太白 / 太灰的像素不参与，否则取出来永远是背景色
             if (value < 0.16 || value > 0.95 || saturation < 0.14) continue;
+            if (delta <= 0.0001) continue;
 
             double hue;
-            if (delta <= 0.0001) continue;
-            else if (Math.Abs(max - r) < 0.0001) hue = 60 * (((g - b) / delta) % 6);
+            if (Math.Abs(max - r) < 0.0001) hue = 60 * (((g - b) / delta) % 6);
             else if (Math.Abs(max - g) < 0.0001) hue = 60 * ((b - r) / delta + 2);
             else hue = 60 * ((r - g) / delta + 4);
             if (hue < 0) hue += 360;
@@ -350,32 +451,109 @@ internal static class Monet
             sumR[bin] += r * w;
             sumG[bin] += g * w;
             sumB[bin] += b * w;
+            maxChroma[bin] = Math.Max(maxChroma[bin], saturation);
         }
 
-        int best = -1;
+        double total = weight.Sum();
+        if (total <= 0) return null;
+
+        // 相邻的桶并成色簇（色相 0 和 360 首尾相接）
+        var clusters = new List<Cluster>();
+        var used = new List<int>();
+
+        // 从第一个「有料且前一个为空」的桶开始，保证首尾相邻的情况只算一个簇
+        int start = -1;
         for (int i = 0; i < bins; i++)
         {
             if (weight[i] <= 0) continue;
-            if (best < 0 || weight[i] > weight[best]) best = i;
+            if (weight[(i - 1 + bins) % bins] <= 0)
+            {
+                start = i;
+                break;
+            }
         }
 
-        if (best < 0) return null;
+        if (start < 0) return null;
 
-        double total = weight[best];
-        var color = Color.FromRgb(
-            (byte)Math.Round(Math.Clamp(sumR[best] / total, 0, 1) * 255),
-            (byte)Math.Round(Math.Clamp(sumG[best] / total, 0, 1) * 255),
-            (byte)Math.Round(Math.Clamp(sumB[best] / total, 0, 1) * 255));
+        for (int step = 0; step < bins; step++)
+        {
+            int bin = (start + step) % bins;
+            if (weight[bin] <= 0) continue;
 
-        return Normalize(color);
+            double w = 0, r = 0, g = 0, b = 0;
+            int index = bin;
+            while (weight[index] > 0 && !used.Contains(index))
+            {
+                used.Add(index);
+                w += weight[index];
+                r += sumR[index];
+                g += sumG[index];
+                b += sumB[index];
+                index = (index + 1) % bins;
+                if (index == bin) break;
+            }
+
+            if (w <= 0) continue;
+
+            clusters.Add(new Cluster
+            {
+                Weight = w,
+                Color = Color.FromRgb(
+                    (byte)Math.Round(Math.Clamp(r / w, 0, 1) * 255),
+                    (byte)Math.Round(Math.Clamp(g / w, 0, 1) * 255),
+                    (byte)Math.Round(Math.Clamp(b / w, 0, 1) * 255))
+            });
+        }
+
+        if (clusters.Count == 0) return null;
+
+        var ordered = clusters.OrderByDescending(c => c.Weight).ToList();
+        Log.Info("莫奈取色：色簇 " + string.Join(" | ", ordered.Take(4).Select(c =>
+        {
+            RgbToHsv(c.Color, out double h, out _, out _);
+            return $"{h:0}° {c.Weight / total * 100:0.0}% #{c.Color.R:X2}{c.Color.G:X2}{c.Color.B:X2}";
+        })));
+        var primary = ordered[0];
+        var chosen = primary;
+
+        RgbToHsv(primary.Color, out double primaryHue, out _, out _);
+        if (HueDistance(primaryHue, BaselineHue) < 20)
+        {
+            // 主色和默认蓝几乎同色 → 找个够面积、色相差得开的色簇，避免「点了没反应」
+            var vivid = ordered.Skip(1)
+                .Where(c => c.Weight >= total * 0.015)
+                .Select(c =>
+                {
+                    RgbToHsv(c.Color, out double h, out _, out _);
+                    return (Cluster: c, Hue: h, Distance: HueDistance(h, primaryHue));
+                })
+                .Where(c => c.Distance >= 18)
+                .OrderByDescending(c => c.Cluster.Weight)
+                .FirstOrDefault();
+
+            if (vivid.Cluster != null)
+            {
+                chosen = vivid.Cluster;
+                Log.Info($"莫奈取色：主色相 {primaryHue:0}° 与默认蓝太近，" +
+                         $"改用色相 {vivid.Hue:0}° 的色簇（占 {vivid.Cluster.Weight / total * 100:0.0}%）");
+            }
+        }
+
+        return Normalize(chosen.Color);
+    }
+
+    private static double HueDistance(double a, double b)
+    {
+        double diff = Math.Abs(a - b) % 360;
+        return diff > 180 ? 360 - diff : diff;
     }
 
     /// <summary>把取到的颜色拉回「能当种子」的区间：彩度别太低，亮度别太极端。</summary>
     private static Color Normalize(Color color)
     {
         RgbToHsv(color, out double h, out double s, out double v);
-        s = Math.Clamp(Math.Max(s, 0.55), 0, 0.9);
-        v = Math.Clamp(v, 0.55, 0.82);
+        s = Math.Clamp(Math.Max(s, 0.62), 0, 0.92);
+        v = Math.Clamp(v, 0.52, 0.78);
         return HsvToRgb(h, s, v);
     }
 

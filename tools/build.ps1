@@ -62,3 +62,11 @@ Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $temp
 [IO.File]::Delete($temp)
 Write-Host "packed -> $artifact"
 Write-Host ("sha256 " + (Get-FileHash -LiteralPath $artifact -Algorithm SHA256).Hash.ToLowerInvariant())
+
+# 本地习惯存放目录（存在才复制，仓库里已忽略）
+$localDir = Join-Path $root '插件做完之后放这里'
+if (Test-Path -LiteralPath $localDir) {
+    $localName = Join-Path $localDir ("高级主页-{0}.pclx" -f $version)
+    Copy-Item -LiteralPath $artifact -Destination $localName -Force
+    Write-Host "copied -> $localName"
+}

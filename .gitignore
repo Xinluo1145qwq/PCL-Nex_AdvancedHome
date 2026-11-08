@@ -1,0 +1,31 @@
+# 构建输出
+bin/
+obj/
+artifacts/
+dist/
+
+# 本地启动器实例与编译期引用的启动器 DLL（第三方二进制，不入库）
+PCL/
+sdk/current/
+.dotnet10/
+插件做完之后放这里/
+皮肤文件/
+
+# 本地调试工具与截图
+tools/shot/
+tools/inspect/
+tools/skinlab/
+tools/extract-bundle.ps1
+tools/dotnet-install.ps1
+
+# 本地启动器安装包 / 工作区笔记
+PCL2_Nex_Release_win-x64.exe
+.workbuddy/
+
+# 编辑器 / 系统
+.vs/
+.vscode/
+*.user
+*.suo
+Thumbs.db
+desktop.ini

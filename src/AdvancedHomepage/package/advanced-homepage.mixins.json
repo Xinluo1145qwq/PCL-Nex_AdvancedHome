@@ -1,0 +1,14 @@
+{
+  "required": false,
+  "package": "PCLN.AdvancedHomepage.Mixins",
+  "mixins": [
+    "FormMainMixin",
+    "PageLaunchRightMixin",
+    "PageSetupUIMixin",
+    "LaunchCounterMixin"
+  ],
+  "priority": 1000,
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

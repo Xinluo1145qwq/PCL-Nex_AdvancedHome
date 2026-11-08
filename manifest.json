@@ -1,0 +1,36 @@
+{
+  "id": "com.pcln.advancedhomepage",
+  "name": "高级主页",
+  "author": {
+    "githubLogin": "Xinluo1145qwq",
+    "displayName": "Xinluo1145qwq"
+  },
+  "description": "用 9 列自适应网格替换原版主页：花样 / 极简 / 便签三套模板，16 种小组件（日历热力、最近存档与实例、3D 皮肤预览、时钟天气、便签待办…），每张卡片可单独设背景图与透明度，布局自由拖拽缩放。",
+  "readmeUrl": "README.md",
+  "repository": "https://github.com/Xinluo1145qwq/PCL-Nex_AdvancedHome",
+  "homepageUrl": "https://github.com/Xinluo1145qwq/PCL-Nex_AdvancedHome",
+  "logo": "assets/logo.png",
+  "group": "界面美化",
+  "tags": [
+    "homepage",
+    "ui",
+    "md3",
+    "widgets",
+    "装扮"
+  ],
+  "versions": [
+    {
+      "version": "2.4.1",
+      "pclCoreVersion": "2026.10.25",
+      "downloads": {
+        "windows": {
+          "anycpu": {
+            "packageUrl": "https://github.com/Xinluo1145qwq/PCL-Nex_AdvancedHome/releases/download/v2.4.1/AdvancedHomepage-2.4.1.pclx",
+            "sha256": "3fa0db6823bfd7b2154af3a18b9899d975086192376b02d44d0ecbb02749084c"
+          }
+        }
+      },
+      "releaseNotes": "https://github.com/Xinluo1145qwq/PCL-Nex_AdvancedHome/releases/tag/v2.4.1"
+    }
+  ]
+}

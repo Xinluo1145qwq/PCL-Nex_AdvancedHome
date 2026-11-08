@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <OutputType>Library</OutputType>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>PCLN.AdvancedHomepage</AssemblyName>
+    <RootNamespace>PCLN.AdvancedHomepage</RootNamespace>
+    <Version>2.4.1</Version>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <DebugType>portable</DebugType>
+    <NoWarn>$(NoWarn);CS1591;MSB3277</NoWarn>
+  </PropertyGroup>
+
+  <!-- 启动器 DLL 的引用路径：命令行 / build.ps1 可以覆盖，默认取仓库里的 sdk\current -->
+  <PropertyGroup>
+    <PclSdkDir Condition="'$(PclSdkDir)' == ''">$(MSBuildThisFileDirectory)..\..\sdk\current</PclSdkDir>
+    <PclCorePath Condition="'$(PclCorePath)' == ''">$(PclSdkDir)\PCL.Core.dll</PclCorePath>
+    <PclMainPath Condition="'$(PclMainPath)' == ''">$(PclSdkDir)\Plain Craft Launcher 2.dll</PclMainPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 内置 Steve / Alex 用官方原版贴图，随 DLL 一起打包，不依赖外部文件 -->
+    <EmbeddedResource Include="Assets\Steve.png" LogicalName="PCLN.AdvancedHomepage.Assets.Steve.png" />
+    <EmbeddedResource Include="Assets\Alex.png" LogicalName="PCLN.AdvancedHomepage.Assets.Alex.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="PCL.Core">
+      <HintPath>$(PclCorePath)</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Plain Craft Launcher 2">
+      <HintPath>$(PclMainPath)</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

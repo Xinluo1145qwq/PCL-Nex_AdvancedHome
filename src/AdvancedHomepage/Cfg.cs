@@ -197,6 +197,9 @@ internal sealed class UiOptions
 
     /// <summary>设置窗口的左侧导航是否折叠（只留图标）。</summary>
     public bool NavCollapsed { get; set; }
+
+    /// <summary>新手教程是否已经看过（首次安装后自动弹一次，之后只在设置里手动重开）。</summary>
+    public bool TutorialSeen { get; set; }
 }
 
 /// <summary>天气组件的显示选项。</summary>

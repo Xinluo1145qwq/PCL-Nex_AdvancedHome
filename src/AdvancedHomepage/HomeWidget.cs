@@ -49,6 +49,12 @@ internal sealed class HomeWidget
     public int DefaultRow;
 
     /// <summary>
+    /// 是否写进「首次安装的默认布局」。默认布局只放问候 + 最近世界 + 最近实例三张卡，
+    /// 其余组件（日历、时钟、天气、计算器…）留在「+」菜单里让用户自己加。
+    /// </summary>
+    public bool AutoPlace = true;
+
+    /// <summary>
     /// 是否允许用户调整大小。日历这类版式写死的组件设为 false，
     /// 编辑模式下就不会出现右下角的缩放手柄。
     /// </summary>

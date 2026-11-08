@@ -34,6 +34,24 @@ internal static class HomeRefresh
         }
     }
 
+    /// <summary>当前活着的那个主页画布（设置里「重新开始教程」要用它）。</summary>
+    public static HomeCanvas? Current
+    {
+        get
+        {
+            lock (Gate)
+            {
+                Prune();
+                foreach (var weak in Live)
+                {
+                    if (weak.TryGetTarget(out var canvas)) return canvas;
+                }
+            }
+
+            return null;
+        }
+    }
+
     /// <summary>主动广播一次（例如插件刚接管主页时）。</summary>
     public static void Notify()
     {

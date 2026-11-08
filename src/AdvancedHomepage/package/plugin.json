@@ -1,9 +1,9 @@
 {
   "id": "com.pcln.advancedhomepage",
   "name": "高级主页",
-  "version": "2.4.1",
+  "version": "2.4.2",
   "author": "PCLN",
-  "description": "用 9 列自适应网格卡片替代原版主页：花样 / 极简 / 便签三套模板，日历热力、最近存档与实例、问候、3D 皮肤预览、网站收藏、便签与待办、文件下载、指针时钟与天气圆盘；每个组件可单独设背景图与透明度，支持自由增删缩放。",
+  "description": "开源（MIT）的 PCL Nex 主页增强插件：用 9 列自适应网格替换原版主页，花样 / 极简 / 便签三套模板，日历热力、最近存档与实例、3D 皮肤预览、时钟天气、便签待办等组件可自由拖拽缩放，每张卡片可单独设背景图与透明度。源码与问题反馈：https://github.com/Xinluo1145qwq/PCL-Nex_AdvancedHome",
   "pclCoreVersion": "2026.10.25",
   "entryAssembly": "lib/PCLN.AdvancedHomepage.dll",
   "mixinConfig": "mixins/advanced-homepage.mixins.json"

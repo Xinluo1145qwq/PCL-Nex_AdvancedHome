@@ -27,7 +27,9 @@ namespace PCLN.AdvancedHomepage;
 /// </summary>
 internal sealed class UiSettingsDialog : Window
 {
-    private const string RepoUrl = "https://github.com/Xinluo1145qwq";
+    private const string RepoUrl = "https://github.com/Xinluo1145qwq/PCL-Nex_AdvancedHome";
+    private const string IssueUrl = "https://github.com/Xinluo1145qwq/PCL-Nex_AdvancedHome/issues";
+    private const string AuthorUrl = "https://github.com/Xinluo1145qwq";
 
     // 24dp / 1.8 描边的图标，和插件里其它图标同一套画法
     private const string IconSearch = "M10.5,4.5 A6,6 0 1 1 10.4,4.5 Z M15.1,15.1 L20,20";
@@ -63,7 +65,7 @@ internal sealed class UiSettingsDialog : Window
 
     private static readonly string[] NavTitles = { "通用", "外观", "关于" };
     private static readonly string[] NavIcons = { IconGeneral, IconLook, IconInfo };
-    private static readonly string[] NavHints = { "字体、顶部菜单、布局与测试", "配色方案", "版本与数据" };
+    private static readonly string[] NavHints = { "字体、顶部菜单、布局与测试", "配色方案", "作者与数据" };
 
     // ── 搜索索引：卡片 → 行 → 文本 ──
     private sealed class SearchRow
@@ -95,6 +97,9 @@ internal sealed class UiSettingsDialog : Window
     private SearchSection? _current;
 
     private Border _shell = null!;
+    private Grid _root = null!;
+    private Border? _toast;
+    private DispatcherTimer? _toastTimer;
     private Border _navPane = null!;
     private ScrollViewer _scroll = null!;
     private StackPanel _content = null!;
@@ -203,6 +208,7 @@ internal sealed class UiSettingsDialog : Window
         var (width, height) = FitSize();
 
         var root = new Grid { Width = width, Height = height };
+        _root = root;
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
@@ -279,7 +285,7 @@ internal sealed class UiSettingsDialog : Window
         for (int i = 0; i < NavTitles.Length; i++)
         {
             int index = i;
-            var item = new NavItem(NavIcons[i], NavTitles[i], () =>
+            var item = new NavItem(NavIcons[i], NavTitles[i], NavHints[i], () =>
             {
                 ClearSearch();
                 ScrollToSection(index, true);
@@ -303,9 +309,9 @@ internal sealed class UiSettingsDialog : Window
             Background = UiSkin.Paint("#C3C8D2")
         });
 
-        var github = new NavItem(IconBug, "反馈 Bug", () => OpenUrl(RepoUrl))
+        var github = new NavItem(IconBug, "反馈 Bug", "去 GitHub 提 issue", () => OpenUrl(IssueUrl))
         {
-            ToolTip = UiStyles.Tooltip("在 GitHub 上反馈 Bug（github.com/Xinluo1145qwq）")
+            ToolTip = UiStyles.Tooltip("在 GitHub 上反馈 Bug（github.com/Xinluo1145qwq/PCL-Nex_AdvancedHome/issues）")
         };
         bottom.Children.Add(github);
         _allNav.Add(github);
@@ -541,7 +547,7 @@ internal sealed class UiSettingsDialog : Window
 
         content.Children.Add(SectionBlock(0, "通用", "字体、顶部菜单、布局数据与测试。", BuildGeneralBody));
         content.Children.Add(SectionBlock(1, "外观", "配色方案会立刻作用到主页与这个窗口。", BuildAppearanceBody));
-        content.Children.Add(SectionBlock(2, "关于", "版本信息、GitHub 与数据维护。", BuildAboutBody));
+        content.Children.Add(SectionBlock(2, "关于", "版本、作者与数据维护；插件以 MIT 协议开源。", BuildAboutBody));
 
         _empty = BuildEmptyState();
         content.Children.Add(_empty);
@@ -855,6 +861,7 @@ internal sealed class UiSettingsDialog : Window
         }, "把「极简」「便签」都关掉，顶部就只剩花样主页，切换按钮会自动隐藏。"));
 
         stack.Children.Add(BuildBackupCard());
+        stack.Children.Add(BuildTutorialCard());
         stack.Children.Add(BuildTestCard());
 
         return stack;
@@ -1191,6 +1198,90 @@ internal sealed class UiSettingsDialog : Window
         return Card("测试", rows, "组件库只是展示，不会改动你的主页；想试哪个控件就在里面点。");
     }
 
+    // ───────────────────── 新手教程 ─────────────────────
+
+    private TextBlock _tutorialHint = null!;
+
+    private FrameworkElement BuildTutorialCard()
+    {
+        _tutorialHint = new TextBlock
+        {
+            Text = TutorialStateText(),
+            FontSize = 12,
+            Margin = new Thickness(0, 0, 0, 4),
+            Foreground = UiSkin.Dim,
+            TextWrapping = TextWrapping.Wrap
+        };
+
+        var restart = M3Button.Create("重新开始", RestartTutorial, M3ButtonKind.Tonal,
+            scale: 0.9, scheme: UiSkin.L);
+
+        var stop = M3Button.Create("结束教程", EndTutorial, M3ButtonKind.Text,
+            scale: 0.9, danger: true, scheme: UiSkin.L);
+        stop.Margin = new Thickness(8, 0, 0, 0);
+
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        actions.Children.Add(restart);
+        actions.Children.Add(stop);
+
+        return Card("新手教程", new FrameworkElement[]
+        {
+            Row("教程进度", "第一次装好插件会自动弹一次；随时可以重新走，也可以提前结束", _tutorialHint),
+            Row("操作", "重新开始会先回到主页，从欢迎弹窗开始", actions)
+        });
+    }
+
+    private static string TutorialStateText()
+    {
+        if (Onboarding.Running) return "正在进行：跟着主页上的气泡做一遍就好。";
+        return Cfg.Ui.TutorialSeen
+            ? "已看过。想再看一遍点「重新开始」。"
+            : "还没看过：下次打开主页会自动弹出。";
+    }
+
+    private void RestartTutorial()
+    {
+        Cfg.Ui.TutorialSeen = false;
+        Cfg.Save();
+
+        var canvas = HomeRefresh.Current;
+        Close();
+
+        if (canvas == null)
+        {
+            Log.Warn("[教程] 找不到主页画布，重新开始失败");
+            return;
+        }
+
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            try
+            {
+                Onboarding.Start(canvas, true);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("重新开始新手教程失败", ex);
+            }
+        }), DispatcherPriority.ApplicationIdle);
+    }
+
+    private void EndTutorial()
+    {
+        if (Onboarding.Running)
+        {
+            Onboarding.Stop(true);
+        }
+        else
+        {
+            Cfg.Ui.TutorialSeen = true;
+            Cfg.Save();
+        }
+
+        if (_tutorialHint != null) _tutorialHint.Text = TutorialStateText();
+        Log.Info("[教程] 已标记为结束");
+    }
+
     private void ToggleFontPopup()
     {
         if (_fontPopup is { IsOpen: true })
@@ -1513,8 +1604,30 @@ internal sealed class UiSettingsDialog : Window
                 return;
             }
 
+            // 已经是莫奈了：再点一次 = 按当前壁纸重新取色（换了壁纸不用切走再切回来）
+            if (key == "monet" && AppTheme.CurrentKey == "monet")
+            {
+                if (AppTheme.RepickMonet())
+                {
+                    Toast("已按当前壁纸重新取色 " + Cfg.Ui.MonetSeed);
+                    Dispatcher.BeginInvoke(new Action(Rebuild), DispatcherPriority.Background);
+                }
+                else
+                {
+                    Toast("没找到壁纸文件，先给启动器设一张背景图");
+                }
+
+                return;
+            }
+
             if (key == AppTheme.CurrentKey) return;
-            AppTheme.Apply(key);
+
+            if (!AppTheme.Apply(key))
+            {
+                Toast("没找到壁纸文件，先给启动器设一张背景图");
+                return;
+            }
+
             Dispatcher.BeginInvoke(new Action(Rebuild), DispatcherPriority.Background);
         };
 
@@ -1680,6 +1793,65 @@ internal sealed class UiSettingsDialog : Window
     }
 
     /// <summary>换配色后整窗重建：M3 的画笔是在构造时取值的，不重建会停在旧色。</summary>
+    /// <summary>窗口底部的一颗轻提示：只在换配色失败 / 取色成功这类瞬间用一下。</summary>
+    private void Toast(string text)
+    {
+        if (_root == null) return;
+
+        _toastTimer?.Stop();
+        if (_toast != null)
+        {
+            _root.Children.Remove(_toast);
+            _toast = null;
+        }
+
+        var card = new Border
+        {
+            Background = UiSkin.L.InverseSurface,
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(16, 10, 16, 10),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(0, 0, 0, 28),
+            IsHitTestVisible = false,
+            Opacity = 0,
+            Effect = M3.Elevation(2),
+            Child = new TextBlock
+            {
+                Text = text,
+                FontSize = 12.5,
+                Foreground = UiSkin.L.InverseOnSurface
+            }
+        };
+
+        Grid.SetColumnSpan(card, 2);
+        Panel.SetZIndex(card, 100);
+        _root.Children.Add(card);
+        _toast = card;
+
+        card.BeginAnimation(OpacityProperty,
+            new DoubleAnimation(1, TimeSpan.FromMilliseconds(160))
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            });
+
+        _toastTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(2400), DispatcherPriority.Background,
+            (_, _) =>
+            {
+                _toastTimer?.Stop();
+                if (_toast != card) return;
+
+                var fade = new DoubleAnimation(0, TimeSpan.FromMilliseconds(180));
+                fade.Completed += (_, _) =>
+                {
+                    if (_toast == card) _toast = null;
+                    _root.Children.Remove(card);
+                };
+                card.BeginAnimation(OpacityProperty, fade);
+            }, Dispatcher);
+        _toastTimer.Start();
+    }
+
     private void Rebuild()
     {
         double offset = _scroll?.VerticalOffset ?? 0;
@@ -1723,7 +1895,7 @@ internal sealed class UiSettingsDialog : Window
         });
         versionText.Children.Add(new TextBlock
         {
-            Text = "PCL Nex 插件 · 9 列自适应网格主页",
+            Text = "PCL Nex 插件 · MIT 开源",
             FontSize = 12,
             Margin = new Thickness(0, 2, 0, 0),
             Foreground = UiSkin.Dim
@@ -1732,14 +1904,14 @@ internal sealed class UiSettingsDialog : Window
         var linkText = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         linkText.Children.Add(new TextBlock
         {
-            Text = "github.com/Xinluo1145qwq",
+            Text = "github.com/Xinluo1145qwq/PCL-Nex_AdvancedHome",
             FontSize = 14,
             FontWeight = FontWeights.Medium,
             Foreground = UiSkin.L.Primary
         });
         linkText.Children.Add(new TextBlock
         {
-            Text = "还没开源，先放作者主页；开源后这里换成仓库地址",
+            Text = "源码、更新日志和问题反馈都在这个仓库",
             FontSize = 12,
             Margin = new Thickness(0, 2, 0, 0),
             Foreground = UiSkin.Dim
@@ -1767,6 +1939,8 @@ internal sealed class UiSettingsDialog : Window
             SimpleRow(linkButton)
         }));
 
+        stack.Children.Add(BuildAuthorCard());
+
         var open = M3Button.Create("打开数据文件夹", OpenDataFolder, M3ButtonKind.Outlined, scheme: UiSkin.L);
         var reset = M3Button.Create("重置启动记录", ResetStats, M3ButtonKind.Text, danger: true, scheme: UiSkin.L);
 
@@ -1779,6 +1953,189 @@ internal sealed class UiSettingsDialog : Window
         {
             Row("数据文件", Paths.ConfigFile, actions)
         }, "配置和背景图都放在这个目录里。重置启动记录只清空打卡统计，不动布局。"));
+
+        return stack;
+    }
+
+    /// <summary>
+    /// 关于页底部的作者卡片：背景图 + 压在交界处的头像 + 名字 / 身份 + 四个平台入口。
+    /// 图片全部内嵌在 DLL 里，换机器、换主题都不会丢图。
+    /// </summary>
+    private FrameworkElement BuildAuthorCard()
+    {
+        var wrap = new StackPanel { Margin = new Thickness(0, 28, 0, 0) };
+
+        wrap.Children.Add(new TextBlock
+        {
+            Text = "作者",
+            FontSize = 13,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = UiSkin.L.Primary,
+            Margin = new Thickness(18, 0, 0, 8)
+        });
+
+        var root = new Grid();
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(168) });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        // 背景图：铺满上半部分，底边压一层渐变把头像和文字托起来
+        var banner = new Grid();
+        if (ImageUtil.Embedded("PCLN.AdvancedHomepage.Assets.Author.banner.jpg", 1200) is { } bannerSource)
+        {
+            var image = new Image
+            {
+                Source = bannerSource,
+                Stretch = Stretch.UniformToFill,
+                SnapsToDevicePixels = true
+            };
+            RenderOptions.SetBitmapScalingMode(image, BitmapScalingMode.HighQuality);
+            banner.Children.Add(image);
+        }
+        else
+        {
+            banner.Background = UiSkin.L.PrimaryContainer;
+        }
+
+        banner.Children.Add(new Border
+        {
+            Background = new LinearGradientBrush(
+                Color.FromArgb(0, 0, 0, 0), Color.FromArgb(64, 0, 0, 0), 90)
+        });
+        root.Children.Add(banner);
+
+        // 头像：骑在背景图与文字区的交线上
+        var avatar = new Border
+        {
+            Width = 84,
+            Height = 84,
+            CornerRadius = new CornerRadius(26),
+            BorderThickness = new Thickness(4),
+            BorderBrush = UiSkin.Card,
+            Background = UiSkin.CardAlt,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(24, -42, 0, 0),
+            Child = ImageUtil.Embedded("PCLN.AdvancedHomepage.Assets.Author.avatar.jpg", 256) is { } face
+                ? new Image { Source = face, Stretch = Stretch.UniformToFill }
+                : null
+        };
+        avatar.SizeChanged += (_, _) =>
+        {
+            if (avatar.ActualWidth <= 0) return;
+            avatar.Clip = new RectangleGeometry(
+                new Rect(0, 0, avatar.ActualWidth, avatar.ActualHeight), 22, 22);
+        };
+        Grid.SetRow(avatar, 1);
+        root.Children.Add(avatar);
+
+        // 名字 + 身份
+        var name = new StackPanel { VerticalAlignment = VerticalAlignment.Top };
+        name.Children.Add(new TextBlock
+        {
+            Text = "星络",
+            FontSize = 20,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = UiSkin.Ink
+        });
+        name.Children.Add(new TextBlock
+        {
+            Text = "高级主页作者",
+            FontSize = 12.5,
+            Margin = new Thickness(0, 2, 0, 0),
+            Foreground = UiSkin.Dim
+        });
+
+        var socials = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Top
+        };
+
+        socials.Children.Add(SocialButton("github.png", "Github", AuthorUrl));
+        socials.Children.Add(SocialButton("douyin.png", "抖音", "https://v.douyin.com/RWM3vXwiAAE/"));
+        socials.Children.Add(SocialButton("bilibili.png", "BiliBili", "https://space.bilibili.com/3546612299204684"));
+        socials.Children.Add(SocialButton("xiaohongshu.png", "小红书",
+            "https://www.xiaohongshu.com/user/profile/66f4e4b0000000001d021f15?xsec_token=YBjqFLK-lgsXr-YJtBN8ovn9lafF5vjgVOBGd3SNS_SKs=&xsec_source=app_share&xhsshare=CopyLink&shareRedId=ODxINEg5Rjk2NzUyOTgwNjdHOTk1Szc-&apptime=1794111178&share_id=a51c0c85e0cb4e5b9c94f562d5e2779b"));
+
+        var footer = new Grid { Margin = new Thickness(24, 52, 24, 22) };
+        footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        footer.Children.Add(name);
+        Grid.SetColumn(socials, 1);
+        footer.Children.Add(socials);
+        Grid.SetRow(footer, 1);
+        root.Children.Add(footer);
+
+        var card = new Border
+        {
+            CornerRadius = new CornerRadius(20),
+            Background = UiSkin.Card,
+            BorderThickness = new Thickness(1),
+            BorderBrush = UiSkin.Line,
+            Child = root
+        };
+        card.SizeChanged += (_, _) =>
+        {
+            if (card.ActualWidth <= 0 || card.ActualHeight <= 0) return;
+            card.Clip = new RectangleGeometry(
+                new Rect(0, 0, card.ActualWidth, card.ActualHeight), 20, 20);
+        };
+
+        wrap.Children.Add(card);
+        return wrap;
+    }
+
+    /// <summary>一颗圆形平台入口：图标直接铺满圆形，悬停换成 primary container 底。</summary>
+    private FrameworkElement SocialButton(string iconFile, string label, string url)
+    {
+        const double size = 40;
+
+        var image = new Image
+        {
+            Stretch = Stretch.UniformToFill,
+            SnapsToDevicePixels = true
+        };
+
+        if (ImageUtil.Embedded("PCLN.AdvancedHomepage.Assets.Author." + iconFile, 128) is { } source)
+        {
+            image.Source = source;
+            image.Clip = new EllipseGeometry(new Point(size / 2, size / 2), size / 2, size / 2);
+        }
+
+        var circle = new Border
+        {
+            Width = size,
+            Height = size,
+            CornerRadius = new CornerRadius(size / 2),
+            Background = UiSkin.CardAlt,
+            Child = image,
+            Cursor = Cursors.Hand,
+            ToolTip = UiStyles.Tooltip(label)
+        };
+
+        circle.MouseEnter += (_, _) => circle.Background = UiSkin.L.PrimaryContainer;
+        circle.MouseLeave += (_, _) => circle.Background = UiSkin.CardAlt;
+        circle.MouseLeftButtonUp += (_, e) =>
+        {
+            e.Handled = true;
+            OpenUrl(url);
+        };
+
+        var stack = new StackPanel
+        {
+            Margin = new Thickness(0, 0, 14, 0),
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+        stack.Children.Add(circle);
+        stack.Children.Add(new TextBlock
+        {
+            Text = label,
+            FontSize = 10.5,
+            Foreground = UiSkin.Dim,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, 5, 0, 0)
+        });
 
         return stack;
     }
@@ -1999,12 +2356,17 @@ internal sealed class UiSettingsDialog : Window
     // ─────────────────────────── 导航项 ───────────────────────────
 
     /// <summary>一个 MD3 导航抽屉条目：52dp 高、全圆角药丸底、左图标右文字。</summary>
+    /// <summary>
+    /// 侧栏条目，版式照抄组件库里的「列表项」：38dp 圆形图标容器 + 标题 + 说明。
+    /// 选中时整行铺 primary container，图标容器翻成实心 primary——比原来的药丸描边更像一枚可点的设置项。
+    /// </summary>
     private sealed class NavItem : Grid
     {
-        private readonly Border _pill;
+        private readonly Border _row;
+        private readonly Border _badge;
         private readonly Path _icon;
         private readonly TextBlock _label;
-        private readonly Brush _hover;
+        private readonly TextBlock _hint;
         private readonly bool _filled;
         private bool _active;
         private bool _hovering;
@@ -2012,43 +2374,64 @@ internal sealed class UiSettingsDialog : Window
         /// <summary>窗口刚弹出来的几百毫秒里关掉点击，避免吃掉上一个窗口的 MouseUp。</summary>
         public bool Enabled = true;
 
-        public NavItem(string iconData, string label, Action onClick, bool filled = false)
+        public NavItem(string iconData, string label, string hint, Action onClick, bool filled = false)
         {
-            Height = 52;
-            Margin = new Thickness(12, 0, 12, 4);
+            Height = 60;
+            Margin = new Thickness(10, 0, 10, 4);
             Background = Brushes.Transparent;
             Cursor = Cursors.Hand;
 
             _filled = filled;
-            _hover = M3.Layer(M3.Of(UiSkin.Nav), M3.Of(UiSkin.Ink), 0.07);
 
-            _pill = new Border
+            _row = new Border
             {
-                CornerRadius = new CornerRadius(26),
+                CornerRadius = new CornerRadius(16),
                 Background = Brushes.Transparent
             };
-            Children.Add(_pill);
+            Children.Add(_row);
 
-            _icon = MakeIcon(iconData, UiSkin.Dim, 22, filled);
+            _icon = MakeIcon(iconData, UiSkin.Dim, 20, filled);
+            _badge = new Border
+            {
+                Width = 38,
+                Height = 38,
+                CornerRadius = new CornerRadius(19),
+                Background = UiSkin.CardAlt,
+                Child = _icon,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
             _label = new TextBlock
             {
                 Text = label,
                 FontSize = 13.5,
                 FontWeight = FontWeights.Medium,
-                Foreground = UiSkin.Dim,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(12, 0, 0, 0)
+                Foreground = UiSkin.Ink
             };
 
-            var row = new StackPanel
+            _hint = new TextBlock
             {
-                Orientation = Orientation.Horizontal,
-                HorizontalAlignment = HorizontalAlignment.Left,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(16, 0, 0, 0)
+                Text = hint,
+                FontSize = 11.5,
+                Foreground = UiSkin.Dim,
+                Margin = new Thickness(0, 2, 0, 0),
+                TextTrimming = TextTrimming.CharacterEllipsis
             };
-            row.Children.Add(_icon);
-            row.Children.Add(_label);
+
+            var text = new StackPanel
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(12, 0, 10, 0)
+            };
+            text.Children.Add(_label);
+            text.Children.Add(_hint);
+
+            var row = new Grid { Margin = new Thickness(10, 0, 8, 0) };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.Children.Add(_badge);
+            Grid.SetColumn(text, 1);
+            row.Children.Add(text);
             Children.Add(row);
 
             MouseEnter += (_, _) =>
@@ -2079,17 +2462,23 @@ internal sealed class UiSettingsDialog : Window
         private void Paint(bool animate)
         {
             var scheme = UiSkin.L;
+
             Brush fill = _active
-                ? scheme.SecondaryContainer
-                : (_hovering ? _hover : Brushes.Transparent);
-            var fg = _active ? scheme.OnSecondaryContainer : UiSkin.Dim;
+                ? scheme.PrimaryContainer
+                : (_hovering ? UiSkin.CardAlt : Brushes.Transparent);
 
-            if (animate) M3.AnimateFill(_pill, fill);
-            else _pill.Background = fill;
+            if (animate) M3.AnimateFill(_row, fill);
+            else _row.Background = fill;
 
-            if (_filled) _icon.Fill = fg;
-            else _icon.Stroke = fg;
-            _label.Foreground = fg;
+            _badge.Background = _active ? scheme.Primary : UiSkin.CardAlt;
+
+            var iconBrush = _active ? scheme.OnPrimary : UiSkin.Dim;
+            if (_filled) _icon.Fill = iconBrush;
+            else _icon.Stroke = iconBrush;
+
+            _label.Foreground = _active ? scheme.OnPrimaryContainer : UiSkin.Ink;
+            _hint.Foreground = _active ? scheme.OnPrimaryContainer : UiSkin.Dim;
+            _hint.Opacity = _active ? 0.78 : 1;
         }
     }
 }

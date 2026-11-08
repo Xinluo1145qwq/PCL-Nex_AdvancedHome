@@ -37,6 +37,35 @@ internal static class ImageUtil
     }
 
     /// <summary>
+    /// 读随 DLL 一起打包的图片（关于页的作者头像 / 背景 / 平台图标）。
+    /// 资源名形如 <c>PCLN.AdvancedHomepage.Assets.Author.avatar.jpg</c>。
+    /// </summary>
+    public static BitmapSource? Embedded(string name, int decodeWidth = 0)
+    {
+        try
+        {
+            var assembly = typeof(ImageUtil).Assembly;
+            using var stream = assembly.GetManifestResourceStream(name);
+            if (stream == null) return null;
+
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
+            if (decodeWidth > 0) bitmap.DecodePixelWidth = decodeWidth;
+            bitmap.StreamSource = stream;
+            bitmap.EndInit();
+            bitmap.Freeze();
+            return bitmap;
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"读取内置图片失败（{name}）：{ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
     /// 没有缩略图时用的占位图：一块像素风草方块（天空渐变 + 草皮 + 带颗粒的泥土）。
     /// 只有两三个纯色块会显得很假，所以按 8×8 像素格子画，颜色层次多一点。
     /// </summary>

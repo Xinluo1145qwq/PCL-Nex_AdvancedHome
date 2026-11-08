@@ -71,14 +71,20 @@ internal static class AppTheme
         Log.Info($"[配色] 自定义 {Cfg.Ui.CustomColor}");
     }
 
-    /// <summary>切方案：写配置 + 清主题缓存 + 重建主页。</summary>
-    public static void Apply(string key)
+    /// <summary>切方案：写配置 + 清主题缓存 + 重建主页。莫奈取不到色时返回 false，调用方负责提示。</summary>
+    public static bool Apply(string key)
     {
         key = (key ?? "blue").ToLowerInvariant();
         if (key == "monet")
         {
             var picked = Monet.Pick();
-            if (picked is Color color) Cfg.Ui.MonetSeed = Hex(color);
+            if (picked is not Color color)
+            {
+                Log.Warn("[配色] 莫奈取色失败：没找到壁纸，保持当前方案");
+                return false;
+            }
+
+            Cfg.Ui.MonetSeed = Hex(color);
         }
 
         Cfg.Ui.Scheme = key;
@@ -86,6 +92,7 @@ internal static class AppTheme
         M3.Invalidate();
         HomeInjector.RequestHomeRefresh();
         Log.Info($"[配色] 切换为 {key}，种子 {(Cfg.Ui.Scheme == "monet" ? Cfg.Ui.MonetSeed : SeedColor().ToString())}");
+        return true;
     }
 
     /// <summary>重新从壁纸取一次色（已经在莫奈方案下时用）。</summary>
@@ -158,15 +165,20 @@ internal static class Monet
         }
     }
 
-    /// <summary>先找启动器当前真正显示的那张壁纸，找不到再退到 Pictures 里最新的一张。</summary>
-    private static string FindWallpaper()
+    /// <summary>
+    /// 先找启动器当前真正显示的那张壁纸，找不到再退到 Pictures 里最新的一张。
+    ///
+    /// 用广度优先：壁纸一般挂得离窗口很近，而卡片背景图埋在很深的地方，
+    /// 深度优先很容易先撞上某张卡片的背景图，取出来的「主色」就成了那张图的颜色。
+    /// </summary>
+    private static string? FindWallpaper()
     {
         try
         {
             var window = PCL.ModMain.frmMain;
             if (window != null)
             {
-                string found = Walk(window);
+                string? found = Walk(window);
                 if (!string.IsNullOrEmpty(found)) return found;
             }
         }
@@ -194,45 +206,81 @@ internal static class Monet
         }
     }
 
-    private static string Walk(DependencyObject node, int depth = 0)
+    private static string? Walk(DependencyObject root)
     {
-        if (node == null || depth > 40) return null;
+        var queue = new Queue<(DependencyObject Node, int Depth)>();
+        queue.Enqueue((root, 0));
 
-        if (node is Image image && image.Source is BitmapImage bitmap)
+        while (queue.Count > 0)
         {
-            string path = Local(bitmap);
-            if (path != null) return path;
-        }
+            var (node, depth) = queue.Dequeue();
+            if (depth > 24) continue;
 
-        if (node is Border { Background: ImageBrush { ImageSource: BitmapImage brushImage } })
-        {
-            string path = Local(brushImage);
-            if (path != null) return path;
-        }
+            string? path = WallpaperOf(node);
+            if (!string.IsNullOrEmpty(path)) return path;
 
-        if (node is Panel { Background: ImageBrush { ImageSource: BitmapImage panelImage } })
-        {
-            string path = Local(panelImage);
-            if (path != null) return path;
-        }
+            int count;
+            try
+            {
+                count = VisualTreeHelper.GetChildrenCount(node);
+            }
+            catch
+            {
+                continue;
+            }
 
-        int count = VisualTreeHelper.GetChildrenCount(node);
-        for (int i = 0; i < count; i++)
-        {
-            var child = VisualTreeHelper.GetChild(node, i);
-            string path = Walk(child, depth + 1);
-            if (path != null) return path;
+            for (int i = 0; i < count; i++)
+            {
+                try
+                {
+                    queue.Enqueue((VisualTreeHelper.GetChild(node, i), depth + 1));
+                }
+                catch
+                {
+                    // 个别子节点还没进可视树时取不到，跳过
+                }
+            }
         }
 
         return null;
     }
 
-    private static string Local(BitmapImage image)
+    /// <summary>这个元素上如果有「来自文件的图片」，就返回它的路径。</summary>
+    private static string? WallpaperOf(DependencyObject node)
+    {
+        if (node is Image image && image.Source is BitmapSource source)
+        {
+            string? fromImage = Local(source);
+            if (fromImage != null) return fromImage;
+        }
+
+        Brush? brush = node switch
+        {
+            Panel panel => panel.Background,
+            Border border => border.Background,
+            Control control => control.Background,     // Window 也算 Control
+            System.Windows.Shapes.Shape shape => shape.Fill,
+            _ => null
+        };
+
+        if (brush is ImageBrush { ImageSource: BitmapSource brushSource })
+        {
+            string? fromBrush = Local(brushSource);
+            if (fromBrush != null) return fromBrush;
+        }
+
+        return null;
+    }
+
+    private static string? Local(BitmapSource source)
     {
         try
         {
-            string uri = image.UriSource?.LocalPath;
-            if (!string.IsNullOrEmpty(uri) && File.Exists(uri)) return uri;
+            if (source is BitmapImage image)
+            {
+                string? uri = image.UriSource?.LocalPath;
+                if (!string.IsNullOrEmpty(uri) && File.Exists(uri)) return uri;
+            }
         }
         catch
         {

@@ -5,7 +5,7 @@
     "githubLogin": "Xinluo1145qwq",
     "displayName": "Xinluo1145qwq"
   },
-  "description": "用 9 列自适应网格替换原版主页：花样 / 极简 / 便签三套模板，17 种小组件（日历热力、最近存档与实例、3D 皮肤预览、时钟天气、便签待办…），每张卡片可单独设背景图与透明度，布局自由拖拽缩放。",
+  "description": "开源（MIT）的 PCL Nex 主页增强插件：用 9 列自适应网格替换原版主页，花样 / 极简 / 便签三套模板，17 种小组件（日历热力、最近存档与实例、3D 皮肤预览、时钟天气、便签待办…），每张卡片可单独设背景图与透明度，布局自由拖拽缩放；内置新手教程与 MD3 组件库。",
   "readmeUrl": "README.md",
   "repository": "https://github.com/Xinluo1145qwq/PCL-Nex_AdvancedHome",
   "homepageUrl": "https://github.com/Xinluo1145qwq/PCL-Nex_AdvancedHome",
@@ -19,6 +19,19 @@
     "装扮"
   ],
   "versions": [
+    {
+      "version": "2.4.2",
+      "pclCoreVersion": "2026.10.25",
+      "downloads": {
+        "windows": {
+          "anycpu": {
+            "packageUrl": "https://github.com/Xinluo1145qwq/PCL-Nex_AdvancedHome/releases/download/v2.4.2/AdvancedHomepage-2.4.2.pclx",
+            "sha256": "f84e1dddeb717fa008c9c6e595e976ebe555167d76ae703ef83360c1203c0a0e"
+          }
+        }
+      },
+      "releaseNotes": "https://github.com/Xinluo1145qwq/PCL-Nex_AdvancedHome/releases/tag/v2.4.2"
+    },
     {
       "version": "2.4.1",
       "pclCoreVersion": "2026.10.25",

@@ -490,6 +490,8 @@ internal sealed class HomeCanvas : Grid
             _scrollSettled = false;
             RestoreScroll();
 
+            // 第一次装插件：等入场动画结束弹一次新手教程
+            Onboarding.OnHomeLoaded(this);
         };
         IsVisibleChanged += (_, e) =>
         {
@@ -549,7 +551,9 @@ internal sealed class HomeCanvas : Grid
         }
 
         bool restoring = _lastOffset >= 0;
-        double goal = restoring ? _lastOffset : GridTopInScroller();
+        // 第一次进主页落到最上面：顶栏（模板切换 / 编辑 / 设置 / 添加）要能第一眼看到，
+        // 否则它藏在视口上方，用户根本不知道有这些入口。
+        double goal = restoring ? _lastOffset : 0;
         // 顶栏还没量出来之前，算出来的目标没有意义，等下一帧
         bool ready = restoring || _topSurface.ActualHeight > 1;
 
@@ -693,6 +697,7 @@ internal sealed class HomeCanvas : Grid
             RowSpan = 4,
             DefaultCol = 6,
             DefaultRow = 0,
+            AutoPlace = false,          // 日历留在「+」里，默认布局只有问候 + 世界 + 实例
             Resizable = true,           // 日历是按宽度等比重绘的矢量版式，放开缩放不会糊
             SetEditing = editing => _calendar.Interactive = !editing,
             OnShown = () =>
@@ -715,7 +720,7 @@ internal sealed class HomeCanvas : Grid
             ColSpan = 3,
             RowSpan = 3,
             DefaultCol = 0,
-            DefaultRow = 0,
+            DefaultRow = 2,
             CountOptions = new[] { 2, 4, 6, 8 },
             GetCount = () => Cfg.GetOption("worlds.count", 4),
             SetCount = count => Cfg.SetOption("worlds.count", count),
@@ -734,8 +739,8 @@ internal sealed class HomeCanvas : Grid
             View = _instances,
             ColSpan = 3,
             RowSpan = 3,
-            DefaultCol = 0,
-            DefaultRow = 3,
+            DefaultCol = 3,
+            DefaultRow = 2,
             CountOptions = new[] { 2, 4, 6, 8 },
             GetCount = () => Cfg.GetOption("instances.count", 4),
             SetCount = count => Cfg.SetOption("instances.count", count),
@@ -753,10 +758,10 @@ internal sealed class HomeCanvas : Grid
             Category = "basic",
             Style = "fancy",
             View = _greeting,
-            ColSpan = 3,
-            RowSpan = 1,
-            DefaultCol = 6,
-            DefaultRow = 4,
+            ColSpan = 4,
+            RowSpan = 2,
+            DefaultCol = 0,
+            DefaultRow = 0,
             Transparent = true,
             DefaultOpacity = 0,
             SetActive = active => _greeting.SetActive(active),
@@ -776,7 +781,7 @@ internal sealed class HomeCanvas : Grid
             Style = "minimal",
             View = _minimal,
             ColSpan = 3,
-            RowSpan = 4,
+            RowSpan = 2,
             SetActive = active => _minimal.SetActive(active)
         });
 
@@ -791,7 +796,7 @@ internal sealed class HomeCanvas : Grid
             Style = "notes",
             View = _notes,
             ColSpan = 5,
-            RowSpan = 3,
+            RowSpan = 4,
             DefaultCol = 0,
             DefaultRow = 0,
             SetActive = active => _notes.SetActive(active),
@@ -809,7 +814,7 @@ internal sealed class HomeCanvas : Grid
             Style = "notes",
             View = _todos,
             ColSpan = 4,
-            RowSpan = 3,
+            RowSpan = 4,
             DefaultCol = 5,
             DefaultRow = 0,
             SetActive = _ => { },
@@ -832,6 +837,7 @@ internal sealed class HomeCanvas : Grid
             RowSpan = 3,
             DefaultCol = 0,
             DefaultRow = 0,
+            AutoPlace = false,
             CountOptions = new[] { 2, 4, 6, 8 },
             CountLabel = "显示 {0} 个网站",
             GetCount = () => Cfg.GetOption("sites.count", 4),
@@ -855,6 +861,7 @@ internal sealed class HomeCanvas : Grid
             RowSpan = 3,
             DefaultCol = 0,
             DefaultRow = 0,
+            AutoPlace = false,
             OnShown = () => _download.Reload(),
             ApplyTheme = () => _download.Reload()
         });
@@ -873,6 +880,7 @@ internal sealed class HomeCanvas : Grid
             RowSpan = 3,
             DefaultCol = 0,
             DefaultRow = 0,
+            AutoPlace = false,
             ApplyTheme = () => _calculator.RefreshTheme()
         });
 
@@ -890,6 +898,7 @@ internal sealed class HomeCanvas : Grid
             RowSpan = 2,
             DefaultCol = 3,
             DefaultRow = 0,
+            AutoPlace = false,
             OnShown = () => _clock.Refresh(),
             ApplyTheme = () => _clock.ApplyTheme()
         });
@@ -907,6 +916,7 @@ internal sealed class HomeCanvas : Grid
             RowSpan = 2,
             DefaultCol = 3,
             DefaultRow = 2,
+            AutoPlace = false,
             OnShown = () => _weather.Refresh(),
             ApplyTheme = () => _weather.ApplyTheme()
         });
@@ -1660,9 +1670,9 @@ internal sealed class HomeCanvas : Grid
         _style = Cfg.VisibleStyle(style);
 
         // 该样式第一次出现时才铺默认组件；用户删掉的不会自己回来。
-        // 快捷入口是用户主动加的，不进默认布局。
+        // 快捷入口是用户主动加的、AutoPlace=false 的组件留给「+」，都不进默认布局。
         Cfg.SeedLayout(_style, _widgets
-            .Where(w => w.Style == _style && !w.Dynamic)
+            .Where(w => w.Style == _style && !w.Dynamic && w.AutoPlace)
             .Select(w => w.DefaultPlacement()));
 
         Select(null);
@@ -1919,6 +1929,42 @@ internal sealed class HomeCanvas : Grid
     }
 
     // ─────────────────────────── 编辑态 ───────────────────────────
+
+    // 新手教程要用的几个口子：气泡指着「+」、指着某张卡片，或者替用户选中卡片
+    internal FrameworkElement? TopBarAddButton => _topBar?.AddButtonEl;
+
+    internal FrameworkElement? TopBarEditButton => _topBar?.EditButtonEl;
+
+    internal FrameworkElement? HostOf(string id) =>
+        _hosts.TryGetValue(id, out var host) ? host : null;
+
+    internal void InvokeAddDialog() => ShowAddDialog();
+
+    /// <summary>把页面滚到最上面，让顶栏（含「+」）露出来。新手教程要用。</summary>
+    internal void ScrollToTop()
+    {
+        HookScroller();
+        if (_scroller == null) return;
+
+        try
+        {
+            _lastOffset = 0;
+            _scroller.ScrollToVerticalOffset(0);
+            _scrollSettled = true;
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("滚动到顶部失败：" + ex.Message);
+        }
+    }
+
+    internal void Toast(string text) => ShowSnackbar(text, null);
+
+    internal void SelectCard(string id)
+    {
+        var widget = _widgets.FirstOrDefault(w => string.Equals(w.Id, id, StringComparison.Ordinal));
+        if (widget != null) Select(widget);
+    }
 
     public void SetEdit(bool on)
     {
@@ -2232,6 +2278,7 @@ internal sealed class HomeCanvas : Grid
         }
 
         AddWidget(widget);
+        Onboarding.OnCardAdded(this, widget.Id);
     }
 
     private void HideMenu() => _menuLayer.Visibility = Visibility.Collapsed;

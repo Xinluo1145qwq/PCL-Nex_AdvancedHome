@@ -176,6 +176,12 @@ internal sealed class HomeTopBar : StackPanel
 
     public string Style => _style;
 
+    /// <summary>「+」按钮本体，新手教程的气泡要指着它。</summary>
+    public FrameworkElement AddButtonEl => _addButton;
+
+    /// <summary>编辑 / 完成按钮本体。</summary>
+    public FrameworkElement EditButtonEl => _editButton;
+
     /// <summary>设置里这个主页有没有被藏掉（花样永远可用）。</summary>
     private static bool IsVisibleStyle(string key) => key switch
     {

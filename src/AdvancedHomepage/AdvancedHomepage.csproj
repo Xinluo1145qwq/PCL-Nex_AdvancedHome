@@ -9,7 +9,7 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>PCLN.AdvancedHomepage</AssemblyName>
     <RootNamespace>PCLN.AdvancedHomepage</RootNamespace>
-    <Version>2.4.1</Version>
+    <Version>2.4.2</Version>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <DebugType>portable</DebugType>
@@ -27,6 +27,14 @@
     <!-- 内置 Steve / Alex 用官方原版贴图，随 DLL 一起打包，不依赖外部文件 -->
     <EmbeddedResource Include="Assets\Steve.png" LogicalName="PCLN.AdvancedHomepage.Assets.Steve.png" />
     <EmbeddedResource Include="Assets\Alex.png" LogicalName="PCLN.AdvancedHomepage.Assets.Alex.png" />
+
+    <!-- 关于页的作者卡片：背景图、头像、四个平台图标 -->
+    <EmbeddedResource Include="Assets\Author\banner.jpg" LogicalName="PCLN.AdvancedHomepage.Assets.Author.banner.jpg" />
+    <EmbeddedResource Include="Assets\Author\avatar.jpg" LogicalName="PCLN.AdvancedHomepage.Assets.Author.avatar.jpg" />
+    <EmbeddedResource Include="Assets\Author\github.png" LogicalName="PCLN.AdvancedHomepage.Assets.Author.github.png" />
+    <EmbeddedResource Include="Assets\Author\douyin.png" LogicalName="PCLN.AdvancedHomepage.Assets.Author.douyin.png" />
+    <EmbeddedResource Include="Assets\Author\bilibili.png" LogicalName="PCLN.AdvancedHomepage.Assets.Author.bilibili.png" />
+    <EmbeddedResource Include="Assets\Author\xiaohongshu.png" LogicalName="PCLN.AdvancedHomepage.Assets.Author.xiaohongshu.png" />
   </ItemGroup>
 
   <ItemGroup>
